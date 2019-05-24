@@ -1,0 +1,58 @@
+# Create By Prakash Makwana: Dated on 1st may, 2019
+
+import csv
+
+stock_picking_obj = self.env['stock.picking']
+stock_move_obj = self.env['stock.move']
+odoo_product_obj=self.env['product.product']
+stock_move_line_obj = self.env['stock.move.line']
+
+# csv file name
+filename = "/home/emipro/stores-opening-delivery-orders.csv"
+reader = csv.DictReader(open(filename, "rU"), delimiter=',')
+location_id = 14
+location_dest_id = 9
+picking_type_id = 5
+warehouse_company_id = 1
+move_type = 'one'
+for stock_data in reader:
+    res_partner = stock_data and stock_data.get('partner_id/id').split("_")[6]
+    product_name = stock_data and stock_data.get('product_id')
+    product_id = product_name and odoo_product_obj.search([('name', '=', product_name)])
+    if len(product_id) == 1:
+
+        # Create stock picking
+        picking = stock_picking_obj.create({
+                                            'partner_id': res_partner,
+                                            'move_type': move_type,
+                                            'origin': stock_data and stock_data.get('origin') or '',
+                                            'picking_type_id': picking_type_id,
+                                            'location_id': location_id,
+                                            'location_dest_id': location_dest_id,
+                                            'company_id': warehouse_company_id,
+                                            'shipstation_instance_id': stock_data.get('shipstation_instance_id') and 1,
+                                            'shipstation_store_id': stock_data.get('shipstation_store_id') and 1,
+                                            })
+
+        # Creat a stock move in stock picking
+        line_vals = {
+            'picking_id': picking.id,
+            'product_id': product_id.id,
+            'name': product_id.name,
+            'location_id': location_id,
+            'location_dest_id': location_dest_id,
+            'product_uom': product_id.uom_id.id,
+            'product_uom_qty': 1,
+        }
+        prod_move = stock_move_obj.create(line_vals)
+
+        # Create a stock move line
+        stock_move_line_obj.create({'product_id': product_id.id,
+                                    'location_id': location_id,
+                                    'location_dest_id': location_dest_id,
+                                    'qty_done': 1.0,
+                                    'picking_id': picking.id,
+                                    'product_uom_id': product_id.uom_id.id,
+                                    'move_id': prod_move.id,
+                                    })
+
